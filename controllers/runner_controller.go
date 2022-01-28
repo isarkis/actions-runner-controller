@@ -731,11 +731,9 @@ func mutatePod(pod *corev1.Pod, token string) *corev1.Pod {
 
 func newRunnerPod(template corev1.Pod, runnerSpec v1alpha1.RunnerConfig, defaultRunnerImage, defaultDockerImage, defaultDockerRegistryMirror string, githubBaseURL string, registrationOnly bool) (corev1.Pod, error) {
 	var (
-		privileged                bool = true
 		dockerdInRunner           bool = runnerSpec.DockerdWithinRunnerContainer != nil && *runnerSpec.DockerdWithinRunnerContainer
 		dockerEnabled             bool = runnerSpec.DockerEnabled == nil || *runnerSpec.DockerEnabled
 		ephemeral                 bool = runnerSpec.Ephemeral == nil || *runnerSpec.Ephemeral
-		dockerdInRunnerPrivileged bool = dockerdInRunner
 	)
 
 	workDir := runnerSpec.WorkDir
@@ -797,15 +795,6 @@ func newRunnerPod(template corev1.Pod, runnerSpec v1alpha1.RunnerConfig, default
 		)
 	}
 
-	var seLinuxOptions *corev1.SELinuxOptions
-	if template.Spec.SecurityContext != nil {
-		seLinuxOptions = template.Spec.SecurityContext.SELinuxOptions
-		if seLinuxOptions != nil {
-			privileged = false
-			dockerdInRunnerPrivileged = false
-		}
-	}
-
 	var runnerContainerIndex, dockerdContainerIndex int
 	var runnerContainer, dockerdContainer *corev1.Container
 
@@ -824,10 +813,6 @@ func newRunnerPod(template corev1.Pod, runnerSpec v1alpha1.RunnerConfig, default
 		runnerContainerIndex = -1
 		runnerContainer = &corev1.Container{
 			Name: containerName,
-			SecurityContext: &corev1.SecurityContext{
-				// Runner need to run privileged if it contains DinD
-				Privileged: &dockerdInRunnerPrivileged,
-			},
 		}
 	}
 
@@ -854,8 +839,6 @@ func newRunnerPod(template corev1.Pod, runnerSpec v1alpha1.RunnerConfig, default
 	if runnerContainer.SecurityContext == nil {
 		runnerContainer.SecurityContext = &corev1.SecurityContext{}
 	}
-	// Runner need to run privileged if it contains DinD
-	runnerContainer.SecurityContext.Privileged = &dockerdInRunnerPrivileged
 
 	pod := template.DeepCopy()
 
@@ -996,12 +979,6 @@ func newRunnerPod(template corev1.Pod, runnerSpec v1alpha1.RunnerConfig, default
 			Value: "/certs",
 		})
 
-		if dockerdContainer.SecurityContext == nil {
-			dockerdContainer.SecurityContext = &corev1.SecurityContext{
-				Privileged:     &privileged,
-				SELinuxOptions: seLinuxOptions,
-			}
-		}
 
 		dockerdContainer.VolumeMounts = append(dockerdContainer.VolumeMounts, dockerVolumeMounts...)
 
