@@ -594,10 +594,6 @@ func newRunnerPod(runnerName string, template corev1.Pod, runnerSpec v1alpha1.Ru
 		runnerContainerIndex = -1
 		runnerContainer = &corev1.Container{
 			Name: containerName,
-			SecurityContext: &corev1.SecurityContext{
-				// Runner need to run privileged if it contains DinD
-				Privileged: &dockerdInRunnerPrivileged,
-			},
 		}
 	}
 
@@ -625,7 +621,9 @@ func newRunnerPod(runnerName string, template corev1.Pod, runnerSpec v1alpha1.Ru
 		runnerContainer.SecurityContext = &corev1.SecurityContext{}
 	}
 	// Runner need to run privileged if it contains DinD
-	runnerContainer.SecurityContext.Privileged = &dockerdInRunnerPrivileged
+  if dockerdInRunnerPrivileged == true {
+	  runnerContainer.SecurityContext.Privileged = &dockerdInRunnerPrivileged
+  }
 
 	pod := template.DeepCopy()
 
